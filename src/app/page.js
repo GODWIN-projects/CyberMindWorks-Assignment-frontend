@@ -36,7 +36,7 @@ export default function Home() {
   
   const fetchjobs = async () => {
     try{
-      const res = await fetch("http://localhost:3001/jobs");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`);
       if (!res.ok) throw new Error("failed to fetch jobs");
       const jobs = await res.json();
       setData(jobs)
@@ -79,7 +79,7 @@ export default function Home() {
     try {
       console.log(formData)
       setLoading(true)
-      const response = await fetch('http://localhost:3001/jobs', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
