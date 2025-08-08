@@ -1,103 +1,345 @@
+"use client"
+
+import { Button, Group, Modal, NumberInput, RangeSlider, Select, SimpleGrid, Stack, Tabs, TabsList, TabsTab, Text, TextInput, Textarea } from "@mantine/core";
 import Image from "next/image";
+import JobCard from "./components/JobCard";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { DateInput, DatePickerInput } from "@mantine/dates";
+import Header from "./components/Header";
+import { IconChevronDown, IconChevronsDown, IconCurrencyRupee, IconMapPin, IconMapPin2, IconSearch, IconUserQuestion } from "@tabler/icons-react";
+
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    clearErrors,
+    formState: { errors },
+  } = useForm();
+
+  const [opened,setOpened] = useState(false);
+  const [data,setData] = useState([]);
+  const [fileredData,setFilteredData] = useState([]);
+  const [loading,setLoading] = useState(false);
+ 
+  const[filters,setFilters] = useState({
+    search: "",
+    location: "",
+    type: "",
+    salary: [5,100]
+  });
+  
+  const fetchjobs = async () => {
+    try{
+      const res = await fetch("http://localhost:3001/jobs");
+      if (!res.ok) throw new Error("failed to fetch jobs");
+      const jobs = await res.json();
+      setData(jobs)
+      setFilteredData(jobs)
+    } catch (err) {
+      console.error("Error loading jobs:", err)
+    }
+  };
+
+ useEffect(() => {
+  fetchjobs();
+ },[])
+
+ useEffect(() => {
+  const { search, location, type, salary } = filters;
+
+  const result = data.filter((job) => {
+    const titleMatch = job.job_title.toLowerCase().includes(search.toLowerCase());
+    const locationMatch = location ? job.location === location : true;
+    const typeMatch = type ? job.type === type : true;
+    const salaryMatch = (
+      job.salary_min >= salary[0] * 1000 &&
+      job.salary_max <= salary[1] * 1000
+    );
+
+    return titleMatch && locationMatch && typeMatch && salaryMatch;
+  });
+  setFilteredData(result);
+  }, [filters, data]);
+
+  useEffect(() => {
+    if (!opened) {
+      reset({
+        deadline:null
+      });
+    }
+  }, [opened,reset]);
+
+  const onSubmit = async (formData) => {
+    try {
+      console.log(formData)
+      setLoading(true)
+      const response = await fetch('http://localhost:3001/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job_title: formData.title,
+          company_name: formData.company,
+          type: formData.jobType,
+          location: formData.location,
+          salary_min: Number(formData.salaryMin.slice(2)),
+          salary_max: Number(formData.salaryMax.slice(2)),
+          deadline: new Date(formData.deadline).toISOString(),
+          description: formData.description,
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error from backend:', errorData);
+        setLoading(false)
+        throw new Error('Failed to submit job data');
+      }
+  
+      const data = await response.json();
+      console.log('Job created successfully:', data);
+      setLoading(false)
+      setOpened(false)
+      reset()
+      await fetchjobs();
+    } catch (error) {
+      console.error('Error submitting form:', error.message);
+    }
+  };
+
+  return (
+    <>
+      <div className="pb-3">
+          <Header onCreateJobClick={() => setOpened(true)}/>
+      </div>
+      <div className="shadow pb-1">  
+          <Group mb="lg" grow gap={"lg"} justify="center" wrap="false" mx={"xl"}>
+            <TextInput variant="unstyled"
+              placeholder="Search by Job Title, Role"
+              leftSection={<IconSearch size={16}/>}
+              classNames={{
+                root: "border-r !border-r-gray-400 ",
+              }
+              }
+              value={filters.search}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            <Select  px={"auto"} variant="unstyled"
+              data={[
+                { label: 'Chennai', value: 'CHENNAI' },
+                { label: 'Bangalore', value: 'BANGALORE' },
+                { label: 'Hyderabad', value: 'HYDRABAD' },
+                { label: 'Pune', value: 'PUNE' },
+              ]}
+              rightSection={<IconChevronDown size={16}/>}
+              leftSection={<IconMapPin size={16}/>}
+              classNames={{
+                root: "border-r !border-r-gray-400 ",
+              }
+              }
+              placeholder="Preferred Location"
+              value={filters.location}
+              onChange={(val) => setFilters((f) => ({ ...f, location: val }))}
+            />
+            <Select variant="unstyled"
+              rightSection={<IconChevronDown size={16}/>}
+              leftSection={<IconUserQuestion size={16}/>}
+              data={[
+                { label: 'Full Time', value: 'FULLTIME' },
+                { label: 'Part Time', value: 'PARTTIME' },
+                { label: 'Internship', value: 'INTERNSHIP' },
+                { label: 'Contract', value: 'CONTRACT' },
+              ]}
+              placeholder="Job Type"
+              value={filters.type}
+              onChange={(val) => setFilters((f) => ({ ...f, type: val }))}
+            />
+            <div>
+              <div className="flex justify-between">
+                <span className="font-medium text-base">Salary Per Month</span>
+                <span className="font-medium text-base">₹{filters.salary[0]}k - ₹{filters.salary[1]}k</span>
+                
+              </div>
+              <RangeSlider
+              color="rgba(0,0,0,1)"
+              min={5}
+              max={100}
+              label={null}
+              classNames={{
+                track: "!h-0.5 "
+              }}
+              onChange={(val) => setFilters((f) => ({ ...f, salary: val }))}
+              />
+            </div>
+            
+        </Group>
+      </div>
+      <div>
+        <SimpleGrid cols={{base:1, sm:2, lg:4}} spacing={"xl"} px={"xl"} pt={"sm"} verticalSpacing={"xl"}>
+          {
+            fileredData.map((job) =>
+              <JobCard key={job.id} job={job}/>
+            )
+          }
+        </SimpleGrid>
+      </div>
+
+      <div>
+          <>
+            <Modal
+              opened={opened}
+              onClose={() => setOpened(false)}
+              title="Create Job Opening"
+              size="auto"
+              centered
+              classNames={{
+                title: "text-center w-full !font-semibold !text-base",
+                content: "!rounded-xl p-2 !h-4/5 !w-3/5"
+              }}
+            >
+              <form 
+              onSubmit={handleSubmit(onSubmit)}
+              >
+                <Stack spacing="md" gap={"md"}>
+                  <Group justify="space-between" gap={"lg"} grow>
+                    <TextInput
+                      w={"full"}
+                      radius={"md"}
+                      label="Job Title"
+                      placeholder="e.g., Full Stack Developer"
+                      error={errors.title && 'Required'}
+                      {...register('title', { required: true })}
+                    />
+                    <TextInput
+                      radius={"md"}
+                      label="Company Name"
+                      placeholder="Amazon, Microsoft, Swiggy"
+                      error={errors.company && 'Required'}
+                      {...register('company', { required: true })}
+                    />
+                  </Group>
+
+                  <Group grow>
+                    <Select
+                      label="Location"
+                      radius={"md"}
+                      withCheckIcon={false}
+                      rightSection={<IconChevronDown size={16}/>}
+                      placeholder="Choose Preferred Location"
+                      data={[
+                        { label: 'Chennai', value: 'CHENNAI' },
+                        { label: 'Bangalore', value: 'BANGALORE' },
+                        { label: 'Hyderabad', value: 'HYDRABAD' },
+                        { label: 'Pune', value: 'PUNE' },
+                      ]}
+                      error={errors.location && 'Required'}
+                      {...register('location', { required: true })}
+                      onChange={(val) => {
+                        setValue('location', val);
+                        clearErrors("location")}}
+                    />
+                    <Select
+                      withCheckIcon={false}
+                      radius={"md"}
+                      placeholder="FullTime"
+                      rightSection={<IconChevronDown size={16}/>}
+                      label="Job Type"
+                      data={[
+                        { label: 'Full Time', value: 'FULLTIME' },
+                        { label: 'Part Time', value: 'PARTTIME' },
+                        { label: 'Internship', value: 'INTERNSHIP' },
+                        { label: 'Contract', value: 'CONTRACT' },
+                      ]}
+                      {...register('jobType', { required: true })}
+                      onChange={(val) => {
+                        setValue('jobType', val)
+                        clearErrors("jobType")}}
+                      error={errors.jobType && 'Required'}
+                    />
+                  </Group>
+                  <Group grow>
+                    <Stack gap={"xs"}>
+                      
+                      <Group grow gap={"xs"}>
+                        <NumberInput
+                        radius={"md"}
+                          prefix="₹ "
+                          label="Salary Range"
+                          placeholder="₹0"
+                          value={watch('salaryMin')}
+                          min={0}
+                          hideControls
+                          {...register('salaryMin', { required: true })}
+                          error={errors.salaryMin && 'Required'}
+                          onChange={(val) => {
+                            setValue('salaryMin', val || null)
+                            clearErrors("salaryMin")}}
+                        />
+                        <NumberInput
+                        classNames={{
+                          wrapper: "!mt-6"
+                        }}
+
+                          radius={"md"}
+                          prefix="₹ "
+                          value={watch('salaryMax')}
+                          error={errors.salaryMax && 'Required'}
+                          placeholder="₹12,00,000"
+                          hideControls
+                          {...register('salaryMax', { required: true })}
+                          onChange={(val) => {
+                            setValue('salaryMax', val,)
+                            clearErrors("salaryMax")}}
+                        />
+                      </Group>
+                    </Stack>
+                    <DatePickerInput
+                      label="Application Deadline"
+                      radius={"md"}
+                      placeholder="Application deadline"
+                      value={watch('deadline')}
+                      {...register('deadline', { required: true })}
+                      onChange={(date) => {
+                        setValue('deadline', date);
+                        clearErrors("deadline")}}
+                      error={errors.deadline && 'Required'}
+                      size="sm"
+                    />
+
+                  </Group>
+
+                  <Textarea
+                    label="Job Description"
+                    radius={"md"}
+                    placeholder="Please share a description to let the candidate know more about the job role"
+                    minRows={6}
+                    autosize
+                    {...register('description', {required:true})}
+                    error={errors.description && 'Required'}
+                  />
+
+                  <Group justify="space-between" mt="md">
+                    <Button variant="default" justify="center" 
+                    radius={"md"} px={"xl"}
+                    rightSection={<IconChevronsDown size={16}/>} >
+                      Save Draft
+                    </Button>
+                    <Button type="submit" px={"xl"} radius={"md"} loading={loading}>
+                      Publish »
+                    </Button>
+                  </Group>
+                </Stack>
+              </form>
+            </Modal>
+          </>
+      </div>
+    </>
   );
 }
